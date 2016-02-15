@@ -62,6 +62,8 @@ static uint8_t at_echo = 0;
 static const uint8_t i2c_if = 2;
 static const uint8_t spi_if = 1;
 
+static uint8_t i2c_adr = 0;
+extern uint8_t EE24_I2C_ADR;
 static uint8_t spi_dev = 1;
 
 static uint8_t buf1[BUFSIZE];
@@ -366,39 +368,44 @@ uint8_t proc_at_cmd(const char* s)
 
 // --- generic I2C commands ---------------------------------------------------
 
-	char ati2cwr[] = "AT+I2CWR=";	// aa
+	char ati2cadr[] = "AT+I2CADR=";	// aa
 
-	if( 0 == strncmp(s, ati2cwr, strlen(ati2cwr)) ) {
-		s += strlen(ati2cwr);
-
-		if( wlen == 0 ) return 1;	// nothing to write
+	if( 0 == strncmp(s, ati2cadr, strlen(ati2cadr)) ) {
+		s += strlen(ati2cadr);
 
 		if( strlen(s) != 2 ) return 1;
 
-		uint8_t adr = uhtoi(s, 2);
+		i2c_adr = uhtoi(s, 2);
 
-		i2c_wr(i2c_if, adr, wbuf, wlen);
+		EE24_I2C_ADR = i2c_adr;
 
 		return 0;
 	}
 
-	char ati2crd[] = "AT+I2CRD=";	// aa,len
+	char ati2cwr[] = "AT+I2CWR";
+
+	if( 0 == strcmp(s, ati2cwr) ) {
+		if( wlen == 0 ) return 1;	// nothing to write
+
+		i2c_wr(i2c_if, i2c_adr, wbuf, wlen);
+
+		return 0;
+	}
+
+	char ati2crd[] = "AT+I2CRD=";	// len
 
 	if( 0 == strncmp(s, ati2crd, strlen(ati2crd)) ) {
 		s += strlen(ati2crd);
 
-		if( strlen(s) < 4 ) return 1;
-		if( s[2] != ',' ) return 1;
+		if( strlen(s) < 1 ) return 1;
 
-		uint8_t adr = uhtoi(s, 2);
-		s += 3;
 		uint16_t len = udtoi(s);
 
 		if( (len < 1) || (len > BUFSIZE) ) return 1;
 
 		rlen = len;
 
-		i2c_rd(i2c_if, adr, rbuf, rlen);
+		i2c_rd(i2c_if, i2c_adr, rbuf, rlen);
 
 		if( bufdisp ) hprintbuf(rbuf, rlen);
 
@@ -675,8 +682,9 @@ uint8_t proc_at_cmd(const char* s)
 		cdc_puts(atbufcmp); cdc_puts("\r\n");
 		cdc_puts(atbufrddisp); cdc_puts("d\r\n");
 		cdc_puts("--- generic I2C ---\r\n");
-		cdc_puts(ati2cwr); cdc_puts("aa\r\n");
-		cdc_puts(ati2crd); cdc_puts("aa,len\r\n");
+		cdc_puts(ati2cadr); cdc_puts("aa\r\n");
+		cdc_puts(ati2cwr); cdc_puts("\r\n");
+		cdc_puts(ati2crd); cdc_puts("len\r\n");
 		cdc_puts("--- I2C EE 24 ---\r\n");
 		cdc_puts(atee24rd); cdc_puts("aaaaaa,len\r\n");
 		cdc_puts(atee24wr); cdc_puts("aaaaaa\r\n");
