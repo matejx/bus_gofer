@@ -22,7 +22,7 @@ bus gofer - USB CDC (or serial) to I2C, SPI converter using STM32F103 (or STM32F
 #include <string.h>
 #include <ctype.h>
 
-//#define AT_CMD_UART 1
+#define AT_CMD_UART 1
 /*
 You can easily adapt this code for STM32F100 (or other F1 MCUs without USB) by:
 1. uncommenting the above line
@@ -59,7 +59,7 @@ volatile uint32_t msTicks;	// counts SysTicks
 
 static uint8_t at_echo = 0;
 
-static const uint8_t i2c_if = 2;
+static const uint8_t i2c_if = 1;
 static const uint8_t spi_if = 1;
 
 static uint8_t i2c_adr = 0;
@@ -270,7 +270,7 @@ uint8_t proc_at_cmd(const char* s)
 	}
 
 	if( 0 == strcmp(s, "ATI") ) {
-		cdc_puts("bus gofer v2.0\r\n");
+		cdc_puts("bus gofer v2.1\r\n");
 		return 0;
 	}
 #ifdef AT_CMD_UART
@@ -491,6 +491,19 @@ uint8_t proc_at_cmd(const char* s)
 		return 1;
 	}
 
+	char atspimode[]= "AT+SPIMODE=";
+
+	if( 0 == strncmp(s, atspimode, strlen(atspimode)) ) {
+		s += strlen(atspimode);
+		if( strlen(s) != 1 ) return 1;
+
+		uint8_t m = udtoi(s);
+
+		spi_init(spi_if, SPI_BaudRatePrescaler_16, m);
+
+		return 0;
+	}
+
 // --- SPI FLASH commands ----------------------------------------------------
 
 	char atfls25rd[] = "AT+FLS25RD="; // aaaaaa,len
@@ -692,6 +705,7 @@ uint8_t proc_at_cmd(const char* s)
 		cdc_puts("--- generic SPI ---\r\n");
 		cdc_puts(atspirw); cdc_puts("\r\n");
 		cdc_puts(atspidev); cdc_puts("num\r\n");
+		cdc_puts(atspimode); cdc_puts("mode\r\n");
 		cdc_puts("--- SPI FLS 25 ---\r\n");
 		cdc_puts(atfls25rd); cdc_puts("aaaaaa,len\r\n");
 		cdc_puts(atfls25wr); cdc_puts("aaaaaa\r\n");
@@ -734,7 +748,7 @@ int main(void)
 	USB_Init(); // suspends device if no USB connected
 #endif
 
-	spi_init(spi_if, SPI_BaudRatePrescaler_16);
+	spi_init(spi_if, SPI_BaudRatePrescaler_16, 0);
 	spi_cs2_init(); // configure PB0 as output, this pin will serve as secondary SPI NSS pin
 	i2c_init(i2c_if, 100000);
 
